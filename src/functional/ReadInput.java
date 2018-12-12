@@ -2,6 +2,7 @@ package functional;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
 import javax.sound.midi.InvalidMidiDataException;
@@ -35,10 +36,11 @@ public class ReadInput {
 
 	public Melody readMelody() throws MidiUnavailableException, InterruptedException, InvalidMidiDataException,
 			CloneNotSupportedException {
+		
 		mySequencer = MidiSystem.getSequencer();
 
-		findDevices();
-		openDevices(inputInstruments);
+		MidiDevice myDevice = findDevice();
+		openDevices(myDevice);
 		setConnection(myTransmitter, myReceiver);
 		setSequencer(mySequencer);
 		if (currentInstrument != null) {
@@ -223,25 +225,25 @@ public class ReadInput {
 
 	}
 
-	private static void openDevices(ArrayList<MidiDevice> iI) throws MidiUnavailableException, InterruptedException {
+	private static void openDevices(MidiDevice myDevice) throws MidiUnavailableException, InterruptedException {
 
 		myReceiver = mySequencer.getReceiver();
 		System.out.println("\nSystem has found " + mySequencer.getDeviceInfo().getName() + " sequencer");
 		mySequencer.open();
 		synth.open();
-		if (inputInstruments.size() > 0) {
+		if (myDevice!=null) {
 			System.out.println(
-					"System has found " + inputInstruments.size() + " devices what can be used to input MIDI:");
+					"System has found " + myDevice + " devices what can be used to input MIDI:");
 
 			try {
-				for (int i = 0; i < iI.size(); i++) {
-					iI.get(i).open();
-					System.out.println(iI.get(i).getDeviceInfo().getName() + " has been opened");
-				}
+				
+					myDevice.open();
+					System.out.println(myDevice.getDeviceInfo().getName() + " has been opened");
+				
 			} catch (MidiUnavailableException e) {
 				System.out.println(e);
 			}
-			currentInstrument = iI.get(0);
+			currentInstrument = myDevice;
 			myTransmitter = currentInstrument.getTransmitter();
 		} else {
 			System.out.println("No devices found to be opened.");
@@ -251,26 +253,39 @@ public class ReadInput {
 		System.out.println();
 	}
 
-	static void findDevices() throws MidiUnavailableException {
+	static MidiDevice findDevice() throws MidiUnavailableException {
+		
 		MidiDevice.Info[] midiDevicesInfo = MidiSystem.getMidiDeviceInfo();
-
-		for (int i = 0; i < midiDevicesInfo.length; i++) {
-			System.out.println("Device no " + (i + 1) + " : " + midiDevicesInfo[i]);
-			MidiDevice device = MidiSystem.getMidiDevice(midiDevicesInfo[i]);
-			System.out.println("Device no " + (i + 1) + " : " + device);
-			try {
-				device.getTransmitter();
-				if (!(device.getDeviceInfo().hashCode() == mySequencer.getDeviceInfo().hashCode())) {
-					inputInstruments.add(device);
-				}
-				System.out.println("\n");
-			} catch (MidiUnavailableException e) {
-				System.out.println(e.toString() + "\n");
-			}
-			 if (device instanceof Synthesizer){
+		ArrayList<MidiDevice> avaliableInputDevices = new ArrayList<MidiDevice>();
+		int deviceNo = 0;
+		for(int i= 0 ; i < midiDevicesInfo.length; i++) {
+        	MidiDevice device = MidiSystem.getMidiDevice(midiDevicesInfo[i]);
+        	try {
+	        	device.getTransmitter();
+	        	if(!(device.getDeviceInfo().hashCode() == mySequencer.getDeviceInfo().hashCode())) {
+	        		avaliableInputDevices.add(device);
+	        	}
+        	}catch(MidiUnavailableException e) {
+        		
+        	} 
+        	 if (device instanceof Synthesizer){
 				 synth = (Synthesizer) MidiSystem.getMidiDevice(midiDevicesInfo[i]);
 			 }
 		}
-	}
+		if(avaliableInputDevices.size()>0) {
+		System.out.println("Choose the device you play on:");
+		for(int i = 0 ; i < avaliableInputDevices.size() ; i++ )
+			System.out.println(i+" - "+avaliableInputDevices.get(i).getDeviceInfo().getName());
+		Scanner reader = new Scanner(System.in);
+		
+		do {
+			deviceNo = reader.nextInt();
+		}while(deviceNo>=avaliableInputDevices.size());
+		
+		System.out.println("You've chosen the "+avaliableInputDevices.get(deviceNo).getDeviceInfo().getName());
+		
+		return avaliableInputDevices.get(deviceNo);
+		}else return null;
 
+	}
 }
